@@ -53,6 +53,7 @@ def generate_argument_units(text):
 def embed_and_upload_to_qdrant(title, class_num, structured_text):
     """Embed structured text and upload to Qdrant."""
     log("🚀 Entered embed_and_upload_to_qdrant()")
+    log(f"Connecting to Qdrant at: {QDRANT_URL}")
     model = SentenceTransformer(EMBEDDING_MODEL)
     embeddings = model.encode([structured_text])
 
@@ -138,4 +139,8 @@ def build_argument_units(input_path):
 if __name__ == "__main__":
     log("✅ Script started")
     build_argument_units(INPUT_FILE)
-    time.sleep(3600)
+    log("💤 Task finished. Keeping Render worker alive...")
+    while True:
+        time.sleep(300)
+
+
