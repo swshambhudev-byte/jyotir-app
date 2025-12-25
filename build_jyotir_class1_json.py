@@ -1,76 +1,131 @@
-import re
+import os
 import json
-from pathlib import Path
+from datetime import datetime
+from openai import OpenAI
+import re
+import subprocess
 
-def build_jyotir_json(input_path: str):
-    input_file = Path(input_path)
-    base = input_file.stem.lower()
+# ===== CONFIGURATION =====
+OUTPUT_DIR = "Data"
+INPUT_FILE = "pasted.txt"
 
-    # 🔹 Determine class number automatically
-    # e.g. "pasted_class2.txt" → "class2.json"
-    # If no number found, default to "class1.json"
-    import re
-    match = re.search(r'(\d+)', base)
-    class_number = match.group(1) if match else "1"
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    output_file = Path(f"class{class_number}.json")
 
-    labels = [
-        "Invocation & Context of Study",
-        "Structure of the Upaniṣad and Jyotir Brāhmaṇa Introduction",
-        "Janaka–Yājñavalkya Dialogue – “Kim Jyotiḥ ayam puruṣaḥ?”",
-        "Four Activities – Āste, Paryeti, Karma Kurute, Viparyeti",
-        "Eka Ślokī Discussion",
-        "Purpose of Light – From Gross to Subtle",
-        "Ṣaḍ-Liṅga Method – Upakrama to Phala",
-    ]
+def log(message):
+    print(f"🌿 {message}")
 
-    patterns = [
-        r"(?:Om\s+Namah\s+Narayana|Thank you)",
-        r"(?:third Brahmana|Jyotir\s+Brahmana|Madhukanda|Munikanda)",
-        r"(?:Janaka|Yajnavalkya|Kim\s*Jyoti)",
-        r"(?:Aaste|Paryeti|Karma\s*Kurute|Viparyeti|four activities)",
-        r"(?:Ekashloki|kimjyoti\s+stava|Guru\s+asks)",
-        r"(?:gross\s+to\s+subtle|purpose\s+of\s+the\s+light|Atma\s*Jyoti)",
-        r"(?:Shad\s*Linga|Upakrama|Upasamhara|Phala|Sivananda)",
-    ]
 
-    # --- Read full text ---
-    text = input_file.read_text(encoding="utf-8")
+def detect_class_info(text):
+    """Detects lecture title and class number (e.g. 'Class 3')."""
+    match = re.search(r"(Brihad.*?Class\s*(\d+))", text, re.IGNORECASE)
+    if match:
+        title = match.group(1).strip()
+        class_num = match.group(2).strip()
+    else:
+        title = "Unknown Lecture"
+        class_num = datetime.now().strftime("%Y%m%d_%H%M")
+    return title, class_num
 
-    # --- Find split positions ---
-    positions = []
-    for pat in patterns:
-        m = re.search(pat, text, re.IGNORECASE)
-        positions.append(m.start() if m else None)
 
-    length = len(text)
-    for i, p in enumerate(positions):
-        if p is None:
-            positions[i] = int(i * length / len(patterns))
-    positions = sorted(set(positions + [length]))
+def generate_argument_units(text):
+    """Use GPT to segment and structure the lecture intelligently."""
+    log("🪶 Generating structured argument units...")
 
-    # --- Extract segments ---
-    segments = [text[positions[i]:positions[i+1]].strip() for i in range(len(positions) - 1)]
-    segments = (segments + [""] * 7)[:7]
+    prompt = f"""
+You are a Vedānta discourse analyst working on Swami Paramananda Giri’s
+Jyotir Brāhmaṇa lectures.
 
-    data = {str(i+1): {"title": labels[i], "content": seg} for i, seg in enumerate(segments)}
+Segment the following lecture transcript into *argument-units*.
+Each unit must have:
 
-   
-# --- Write clean JSON file into /data ---
-output_dir = Path("data")
-output_dir.mkdir(exist_ok=True)
-output_path = output_dir / output_file.name
+- **Topic**
+- **Śabda Pivot**  (key word or linguistic hinge)
+- **Pūrvapakṣa**   (misunderstanding or opposing stance)
+- **Siddhānta**    (resolution or intended meaning)
+- **Quotation**    (if present)
+- **Layer**        one of: Śruti | Bhāṣya | Vārttika | Ṭīkā | Footnote | Modern exposition
+- **Expands**      which prior layer it elaborates (e.g. Bhāṣya expands Śruti)
+- **Function**     short phrase describing the interpretive role, such as:
+                   "makes explicit what was implicit",
+                   "clarifies hidden assumption",
+                   "illustrates with example", etc.
 
-with output_path.open("w", encoding="utf-8") as f:
-    json.dump(data, f, ensure_ascii=False, indent=4)
+Detect these layers using textual cues:
+- Mentions of Śaṅkara, “in the Bhāṣya” → Layer = Bhāṣya, Expands = Śruti.
+- Mentions of Sureśvara, “in the Vārttika” → Layer = Vārttika, Expands = Bhāṣya.
+- Mentions of Ṭīkākāra or “in the Ṭīkā” → Layer = Ṭīkā, Expands = Vārttika or Bhāṣya.
+- Explicit quotations from the Upaniṣad → Layer = Śruti.
+- Teacher’s own clarifying explanation → Layer = Modern exposition, Expands = preceding layer.
 
-# --- Log summary ---
-log_file = Path(f"log_class{class_number}.txt")
-total_chars = sum(len(v["content"]) for v in data.values())
-log_file.write_text(
-    f"Created {output_path} with {len(data)} segments ({total_chars} characters total).\n",
-    encoding="utf-8"
-)
+If no layer is clear, leave those three fields blank.
 
-print(f"✅ Created {output_path} ({total_chars} chars)")
+Keep the writing in readable Markdown, with clear numbering and spacing.
+Preserve exact Sanskrit words in IAST where present.
+
+Lecture text:
+{text}
+"""
+
+    response = client.responses.create(
+        model="gpt-5.2"
+        input=prompt
+    )
+
+    return response.output[0].content[0].text.strip()
+
+
+def git_push(file_path, title, class_num):
+    """Automatically adds, commits, and pushes new lecture data to GitHub."""
+    try:
+        log("📂 Staging files...")
+        subprocess.run(["git", "add", "."], check=True)
+
+        log("🪵 Committing changes...")
+        commit_message = f"✨ Added {title} (Class {class_num}) structured JSON with layered annotations"
+        subprocess.run(["git", "commit", "-m", commit_message], check=True)
+
+        log("☁️ Pushing to GitHub...")
+        subprocess.run(["git", "push", "-u", "origin", "main"], check=True)
+
+        log("🌸 Successfully pushed and triggered Render deploy.")
+    except subprocess.CalledProcessError as e:
+        log(f"⚠️ Git push failed: {e}")
+
+
+def build_argument_units(input_path):
+    """Core process: read text, segment, save JSON, push to GitHub."""
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+
+    log(f"💫 Processing {input_path} – please wait...")
+
+    with open(input_path, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    title, class_num = detect_class_info(text)
+    log(f"📘 Detected: {title}")
+
+    structured_text = generate_argument_units(text)
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    safe_title = re.sub(r"[^A-Za-z0-9_]+", "_", title)
+    output_file = os.path.join(OUTPUT_DIR, f"class_{class_num}_{safe_title}.json")
+
+    result = {
+        "title": title,
+        "class_num": class_num,
+        "content": structured_text
+    }
+
+    with open(output_file, "w", encoding="utf-8") as out:
+        json.dump(result, out, ensure_ascii=False, indent=2)
+
+    log(f"💾 Saved structured file: {output_file}")
+
+    # Push to GitHub + Render
+    git_push(output_file, title, class_num)
+
+
+if __name__ == "__main__":
+    build_argument_units(INPUT_FILE)
