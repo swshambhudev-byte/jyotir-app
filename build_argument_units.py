@@ -100,5 +100,5 @@ def build_argument_units(input_path: str):
     result = {
         "title": title,
         "class_num": class_num,
-        "content":
+        "content": structured_text
 }
