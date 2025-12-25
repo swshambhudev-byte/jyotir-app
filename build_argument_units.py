@@ -1,3 +1,52 @@
+import os, re, json, time
+from openai import OpenAI
+from qdrant_client import QdrantClient
+
+# 🔧 Setup logging
+def log(msg):
+    print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+# --- main process ---
+def build_argument_units(input_path):
+    log("🚀 Starting jyotir-app argument unit builder")
+
+    if not os.path.exists(input_path):
+        log(f"❌ Input file not found: {input_path}")
+        return
+
+    with open(input_path, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    log(f"📄 Loaded {len(text.split())} words from {input_path}")
+
+    # Example placeholder: detect title, etc.
+    title = "Detected Lecture Title"
+    class_num = 5
+    log(f"🎓 Processing: {title} (Class {class_num})")
+
+    structured_text = [{"segment": "example"}]  # ← Replace with your generation step
+    output_file = f"class_{class_num}_{re.sub(r'[^A-Za-z0-9_]+', '_', title)}.json"
+
+    os.makedirs("Data", exist_ok=True)
+    out_path = os.path.join("Data", output_file)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(structured_text, f, ensure_ascii=False, indent=2)
+
+    log(f"💾 Saved structured data → {out_path}")
+    return out_path
+
+# --- end script ---
+if __name__ == "__main__":
+    INPUT_FILE = "pasted.txt"
+    log("✅ Script started")
+    result = build_argument_units(INPUT_FILE)
+    if result:
+        log("🏁 Processing complete. Going idle.")
+    else:
+        log("⚠️ Nothing processed. Exiting early.")
+    time.sleep(3600)
+
+
 import time
 print("✅ Task complete. Sleeping to keep Render happy...")
 time.sleep(3600)  # Keeps the worker alive for 1 hour
