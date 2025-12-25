@@ -1,0 +1,9 @@
+Created segments.json with 7 segments (64104 characters total).
+[2025-12-25 01:14:24] 🕉️ Processing pasted.txt – this may take a minute...
+[2025-12-25 01:14:24] 📘 Detected lecture: BrihadAranyaka Upanishd – Atma Jyoti Brhamana - Class 2
+[2025-12-25 01:14:24] 📗 Output file will be: Data\class.json
+[2025-12-25 01:14:26] ❌ Error: Error code: 404 - {'error': {'message': 'The model `gpt-5.2-turbo` does not exist or you do not have access to it.', 'type': 'invalid_request_error', 'param': None, 'code': 'model_not_found'}}
+[2025-12-25 01:16:59] 🕉️ Processing pasted.txt – this may take a minute...
+[2025-12-25 01:16:59] 📘 Detected lecture: BrihadAranyaka Upanishd – Atma Jyoti Brhamana - Class 2
+[2025-12-25 01:16:59] 📗 Output file will be: Data\class.json
+[2025-12-25 01:18:29] ✅ Done! Saved structured argument units to Data\class.json
