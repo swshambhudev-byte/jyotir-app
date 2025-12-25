@@ -1,3 +1,6 @@
+import time
+print("✅ Task complete. Sleeping to keep Render happy...")
+time.sleep(3600)  # Keeps the worker alive for 1 hour
 import os
 import re
 import json
@@ -17,7 +20,17 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")  # for Qdrant
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+import os
+from openai import OpenAI
+
+# --- Debug check for Render environment ---
+key = os.getenv("OPENAI_API_KEY")
+if not key:
+    print("❌ No OPENAI_API_KEY found in environment!")
+else:
+    print("✅ OPENAI_API_KEY detected (starts with):", key[:8])
+
+client = OpenAI(api_key=key)
 
 # ==========================
 # HELPERS
@@ -102,3 +115,12 @@ def build_argument_units(input_path: str):
         "class_num": class_num,
         "content": structured_text
 }
+
+if __name__ == "__main__":
+    build_argument_units(INPUT_FILE)
+
+    print("✅ Task complete. Sleeping to keep Render happy...")
+    import time
+    time.sleep(3600)  # Keep alive for 1 hour
+
+
