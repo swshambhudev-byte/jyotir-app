@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -o errexit
 
-# Start the FastAPI server with Uvicorn using Render's dynamic PORT
-port=${PORT:-10000}
-exec uvicorn app:app --host 0.0.0.0 --port "$port"
+echo "Starting FastAPI with Uvicorn on Render port: ${PORT:-10000}"
+exec uvicorn app:app --host 0.0.0.0 --port ${PORT:-10000}
